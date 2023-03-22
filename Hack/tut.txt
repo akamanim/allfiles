@@ -1,0 +1,59 @@
+token = '6074708790:AAHkgqO7GVMwtuT-51g8zzeKHNR2BPGglEY'
+import telebot
+import requests
+from bs4 import BeautifulSoup
+
+# Создаем бота
+bot = telebot.TeleBot('TOKEN') # вставьте сюда токен вашего бота
+
+# Функция для парсинга новостей с сайта KaktusMedia
+def parse_news():
+    url = 'https://kaktus.media/'
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    news = soup.find_all('h3', class_='card__title')
+    return news
+
+# Функция для отправки новостей пользователю
+def send_news(message, news):
+    for i in range(len(news)):
+        title = news[i].text.strip()
+        bot.send_message(message.chat.id, f'{i+1}. {title}')
+
+# Обработчик команды /start
+@bot.message_handler(commands=['start'])
+def handle_start(message):
+    # Парсим новости с сайта
+    news = parse_news()
+    # Отправляем пользователю первые 20 заголовков новостей
+    send_news(message, news[:20])
+
+# Обработчик текстовых сообщений
+@bot.message_handler(content_types=['text'])
+def handle_text(message):
+    if message.text.isdigit():
+        # Если пользователь ввел номер новости, отправляем ему информацию о ней
+        news = parse_news()
+        try:
+            title = news[int(message.text)-1].text.strip()
+            url = 'https://kaktus.media' + news[int(message.text)-1].find('a')['href']
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            description = soup.find('div', class_='post__content').text.strip()
+            photo = soup.find('div', class_='post__media').find('img')['src']
+            bot.send_message(message.chat.id, f'{title}\n{description}')
+            bot.send_photo(message.chat.id, photo)
+        except:
+            bot.send_message(message.chat.id, 'Новость не найдена')
+    elif message.text == 'Description':
+        # Если пользователь нажал на кнопку "Description", отправляем ему описание текущей новости
+        # TODO: реализовать отправку описания текущей новости
+    elif message.text == 'Photo':
+        # Если пользователь нажал на кнопку "Photo", отправляем ему фото текущей новости
+        # TODO: реализовать отправку фото текущей новости
+    elif message.text == 'Quit':
+        # Если пользователь нажал на кнопку "Quit", отправляем ему сообщение "До свидания"
+        bot.send_message(message.chat.id, 'До свидания')
+
+# Запускаем бота
+bot.polling(none_stop=True)
